@@ -67,34 +67,70 @@ function getCustomers() {
 function getPrices(customer, method) {
   const ss = SpreadsheetApp.openById(SS_ID);
   let sheetName = '価格表';
-  if (method === '付売') sheetName = '価格表（付売）';
-  else if (method === '市売') sheetName = '価格表（市売）';
-  else if (method === 'ニッチ' || method === 'ネット') sheetName = '価格表（ニッチ）';
+  let isSimple = false; // 市売/付売は取引先列なしの共通価格表
+  if (method === '付売') { sheetName = '価格表（付売）'; isSimple = true; }
+  else if (method === '市売') { sheetName = '価格表（市売）'; isSimple = true; }
+  else if (method === 'ニッチ' || method === 'ネット') { sheetName = '価格表（ニッチ）'; isSimple = true; }
 
-  const sheet = ss.getSheetByName(sheetName);
+  // シート名の末尾スペース対策: 部分一致で検索
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    const allSheets = ss.getSheets();
+    sheet = allSheets.find(function(s) { return s.getName().trim() === sheetName || s.getName().includes(sheetName); });
+  }
   if (!sheet) return { prices: [], sheetName: sheetName, error: 'Sheet not found' };
 
   const data = sheet.getDataRange().getValues();
   const prices = [];
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const custName = String(row[0] || '').trim(); // A列: 取引先
-    if (!custName.includes(customer) && !customer.includes(custName)) continue;
-    prices.push({
-      customer: custName,
-      hinmei: String(row[1] || '').trim(),   // B列: 品名
-      thickness: row[2],                      // C列: 厚
-      width: row[3],                          // D列: 巾
-      length: row[4],                         // E列: 長
-      key: String(row[5] || '').trim(),       // F列: 合体
-      marubushi: row[6] || '',                // G列: 丸節
-      kobushi: row[7] || '',                  // H列: 小節
-      tokujoko: row[8] || '',                 // I列: 特上小
-      mubushi: row[9] || '',                  // J列: 無節
-      marubushi_tokujoko: row[10] || '',      // K列: 丸節特上小
-      namabushi: row[11] || '',               // L列: 生節
-      remark: String(row[12] || '').trim()    // M列: 備考
-    });
+
+  if (isSimple) {
+    // 市売/付売/ニッチ: A:品名, B:厚, C:巾, D:長, E:丸節, F:小節, G:特上小, H:無節, I:無節特上小, J:生節
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      const hinmei = String(row[0] || '').trim();
+      if (!hinmei || hinmei.startsWith('※')) break;
+      prices.push({
+        customer: customer,
+        hinmei: hinmei,
+        thickness: row[1],
+        width: row[2],
+        length: row[3],
+        key: '',
+        marubushi: row[4] || '',
+        kobushi: row[5] || '',
+        tokujoko: row[6] || '',
+        mubushi: row[7] || '',
+        marubushi_tokujoko: row[8] || '',
+        namabushi: row[9] || '',
+        remark: ''
+      });
+    }
+  } else {
+    // メイン価格表: A:取引先, B:品名, C:厚, D:巾, E:長, F:合体, G:丸節...
+    const cleanName = function(s) { return String(s).replace(/[（）\(\)株有]/g, '').trim(); };
+    const cleanCust = cleanName(customer);
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const custName = String(row[0] || '').trim();
+      const cleanC = cleanName(custName);
+      if (!custName) continue;
+      if (custName !== customer && !custName.includes(customer) && !customer.includes(custName) && cleanC !== cleanCust && !cleanC.includes(cleanCust) && !cleanCust.includes(cleanC)) continue;
+      prices.push({
+        customer: custName,
+        hinmei: String(row[1] || '').trim(),
+        thickness: row[2],
+        width: row[3],
+        length: row[4],
+        key: String(row[5] || '').trim(),
+        marubushi: row[6] || '',
+        kobushi: row[7] || '',
+        tokujoko: row[8] || '',
+        mubushi: row[9] || '',
+        marubushi_tokujoko: row[10] || '',
+        namabushi: row[11] || '',
+        remark: String(row[12] || '').trim()
+      });
+    }
   }
   return { prices: prices };
 }
