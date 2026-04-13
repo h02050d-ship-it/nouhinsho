@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>納品書作成</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root {
+  --blue: #1565c0;
+  --blue-light: #e3f2fd;
+  --red: #c62828;
+  --green: #2e7d32;
+  --orange: #e65100;
+  --gray: #78909c;
+  --bg: #f5f5f5;
+  --white: #fff;
+  --shadow: 0 2px 8px rgba(0,0,0,.12);
+  --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif; background: var(--bg); color: #333; }
+
+/* === Header === */
+.header {
+  background: var(--blue);
+  color: #fff;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header h1 { font-size: 18px; font-weight: 700; }
+.header-links a { color: #fff; text-decoration: none; font-size: 13px; opacity: .8; margin-left: 12px; }
+.header-links a:hover { opacity: 1; }
+
+/* === Steps === */
+.steps {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 16px 20px 8px;
+  background: var(--white);
+  border-bottom: 1px solid #e0e0e0;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #999;
+  cursor: pointer;
+}
+.step-item.active { color: var(--blue); font-weight: 700; }
+.step-item.done { color: var(--green); }
+.step-num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  background: #e0e0e0; color: #999;
+}
+.step-item.active .step-num { background: var(--blue); color: #fff; }
+.step-item.done .step-num { background: var(--green); color: #fff; }
+.step-arrow { color: #ccc; margin: 0 8px; font-size: 18px; }
+
+/* === Container === */
+.container { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+/* === Step 1: Customer Selection === */
+.date-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.date-row label { font-weight: 600; font-size: 14px; }
+.date-row input[type="date"] { font-size: 16px; padding: 6px 10px; border: 1px solid #ccc; border-radius: var(--radius); }
+
+.search-box {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  outline: none;
+}
+.search-box:focus { border-color: var(--blue); }
+
+.section-label {
+  font-size: 13px; font-weight: 700; color: var(--gray);
+  margin: 12px 0 8px;
+  text-transform: uppercase;
+}
+
+.customer-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.customer-card {
+  background: var(--white);
+  border: 2px solid #e0e0e0;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.customer-card:hover { border-color: var(--blue); box-shadow: var(--shadow); }
+.customer-card.priority { border-left: 4px solid var(--red); }
+.customer-name { font-size: 15px; font-weight: 700; }
+.customer-method { font-size: 12px; color: var(--gray); margin-top: 2px; }
+.customer-badge {
+  display: inline-block;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+/* === Step 2: Items === */
+.step2-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.step2-header h2 { font-size: 18px; }
+.back-btn, .action-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.back-btn { background: #e0e0e0; color: #333; }
+.action-btn { background: var(--blue); color: #fff; }
+.action-btn:hover { opacity: .9; }
+.action-btn:disabled { background: #bbb; cursor: not-allowed; }
+.action-btn.green { background: var(--green); }
+.action-btn.red { background: var(--red); }
+
+.items-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.items-table th {
+  background: var(--blue);
+  color: #fff;
+  padding: 8px 6px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+.items-table td {
+  padding: 6px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+  vertical-align: middle;
+}
+.items-table tr:hover { background: var(--blue-light); }
+.items-table input[type="number"], .items-table input[type="text"], .items-table select {
+  width: 100%;
+  min-width: 60px;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: right;
+}
+.items-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.extras-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--white);
+  border-radius: var(--radius);
+}
+.extras-row label { font-size: 13px; font-weight: 600; }
+.extras-row input, .extras-row select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.totals-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.totals-box .row { display: flex; justify-content: space-between; padding: 4px 0; }
+.totals-box .row.grand { font-size: 18px; font-weight: 700; color: var(--blue); border-top: 2px solid var(--blue); padding-top: 8px; margin-top: 4px; }
+
+/* === Step 3: Preview === */
+.preview-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.nouhinsho {
+  background: #fff;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 20mm 15mm;
+  box-shadow: var(--shadow);
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  color: #000;
+  position: relative;
+}
+.nouhinsho h2 { text-align: center; font-size: 28px; letter-spacing: 12px; margin-bottom: 16px; }
+.nouhinsho .date-line { text-align: right; font-size: 14px; margin-bottom: 20px; }
+.nouhinsho .customer-line {
+  font-size: 20px;
+  font-weight: 700;
+  border-bottom: 2px solid #000;
+  display: inline-block;
+  padding-bottom: 4px;
+  margin-bottom: 24px;
+}
+.nouhinsho .customer-line .honorific { font-size: 16px; font-weight: 400; margin-left: 16px; }
+.nouhinsho .total-line {
+  font-size: 20px;
+  font-weight: 700;
+  border: 2px solid #000;
+  display: inline-block;
+  padding: 6px 20px;
+  margin-bottom: 20px;
+}
+.nouhinsho .total-label { font-size: 14px; margin-right: 12px; }
+
+.nouhinsho table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.nouhinsho table th, .nouhinsho table td {
+  border: 1px solid #333;
+  padding: 5px 6px;
+  text-align: center;
+}
+.nouhinsho table th { background: #f0f0f0; font-weight: 600; }
+.nouhinsho table td.num { text-align: right; }
+
+.nouhinsho .summary-table { width: auto; margin-left: auto; margin-bottom: 24px; }
+.nouhinsho .summary-table td { border: 1px solid #333; padding: 4px 12px; }
+.nouhinsho .summary-table .label { text-align: left; font-weight: 600; background: #f0f0f0; }
+.nouhinsho .summary-table .value { text-align: right; min-width: 100px; }
+
+.nouhinsho .company-info {
+  font-size: 12px;
+  line-height: 1.8;
+  position: absolute;
+  bottom: 20mm;
+  right: 15mm;
+}
+.nouhinsho .company-name { font-size: 16px; font-weight: 700; }
+
+/* === Loading === */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--gray);
+}
+.spinner {
+  display: inline-block;
+  width: 30px; height: 30px;
+  border: 3px solid #e0e0e0;
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.toast.show { opacity: 1; }
+
+.hidden { display: none !important; }
+
+/* === Print === */
+@media print {
+  body { background: #fff; }
+  .header, .steps, .preview-actions, .toast { display: none !important; }
+  .container { max-width: none; padding: 0; margin: 0; }
+  .nouhinsho {
+    box-shadow: none;
+    width: 100%;
+    padding: 15mm;
+    min-height: auto;
+  }
+  @page { size: A4 portrait; margin: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>納品書作成</h1>
+  <div class="header-links">
+    <a href="https://h02050d-ship-it.github.io/kakou-yotei/" target="_blank">加工予定表 →</a>
+  </div>
+</div>
+
+<!-- Steps -->
+<div class="steps">
+  <div class="step-item active" id="step-ind-1" onclick="goStep(1)">
+    <div class="step-num">1</div>
+    <span>取引先選択</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-item" id="step-ind-2" onclick="goStep(2)">
+    <div class="step-num">2</div>
+    <span>商品選択</span>
+  </div>
+  <span class="step-arrow">›</span>
+  <div class="step-item" id="step-ind-3" onclick="goStep(3)">
+    <div class="step-num">3</div>
+    <span>納品書出力</span>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="container" id="app"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// Config
+// =====================================================
+const GAS_URL = '%%GAS_URL%%'; // デプロイ後に置き換え
+const HINMEI_MAP = { F: '桧フローリング', P: '桧羽目板', N: 'ナイスオリジナル', S: 'スノコ板' };
+const GRADE_OPTIONS = ['丸節','小節','特上小','無節','丸節特上小','生節','B丸節'];
+const TAX_RATE = 0.10;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBkpsxdYciMiLmsBfHNWRL7OFniSsssQwA",
+  authDomain: "kakou-yotei.firebaseapp.com",
+  databaseURL: "https://kakou-yotei-default-rtdb.firebaseio.com",
+  projectId: "kakou-yotei",
+  storageBucket: "kakou-yotei.firebasestorage.app",
+  messagingSenderId: "633993422136",
+  appId: "1:633993422136:web:a8c9f47c35fead59840dcd"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// =====================================================
+// State
+// =====================================================
+let state = {
+  step: 1,
+  date: new Date().toISOString().slice(0, 10),
+  customers: [],
+  kanryoItems: [],
+  selectedCustomer: null,
+  prices: [],
+  items: [],       // Step 2 items [{checked, hinmei, grade, thickness, width, length, irikazu, qty, tanka, tanka_mod, remark, _key}]
+  carrier: '',
+  unchin: 0,
+  saved: false,
+};
+
+// =====================================================
+// Data Loading
+// =====================================================
+async function loadCustomers() {
+  try {
+    const res = await fetch(GAS_URL + '?action=getCustomers');
+    const data = await res.json();
+    state.customers = data.customers || [];
+  } catch (e) {
+    console.error('Failed to load customers:', e);
+    state.customers = [];
+  }
+}
+
+async function loadPrices(customer, method) {
+  try {
+    const url = GAS_URL + '?action=getPrices&customer=' + encodeURIComponent(customer) + '&method=' + encodeURIComponent(method);
+    const res = await fetch(url);
+    const data = await res.json();
+    state.prices = data.prices || [];
+  } catch (e) {
+    console.error('Failed to load prices:', e);
+    state.prices = [];
+  }
+}
+
+function loadKanryoItems() {
+  return new Promise((resolve) => {
+    db.ref('items').once('value', (snap) => {
+      const val = snap.val() || {};
+      const items = [];
+      Object.entries(val).forEach(([key, item]) => {
+        const ord = parseInt(item.order) || 0;
+        if (ord >= 9 && item.archived !== '1') {
+          items.push({ ...item, _key: key });
+        }
+      });
+      state.kanryoItems = items;
+      resolve();
+    });
+  });
+}
+
+async function saveRecords() {
+  const checked = state.items.filter(it => it.checked);
+  if (!checked.length) { showToast('商品を選択してください'); return; }
+
+  const subtotal = checked.reduce((s, it) => s + calcKingaku(it), 0);
+  const tax = Math.floor(subtotal * TAX_RATE);
+  const total = subtotal + tax + (Number(state.unchin) || 0);
+
+  const records = checked.map((it, idx) => ({
+    date: state.date,
+    customer: state.selectedCustomer.name,
+    hinmei: it.hinmei,
+    grade: it.grade,
+    thickness: it.thickness,
+    width: it.width,
+    length: it.length,
+    irikazu: it.irikazu,
+    qty: it.qty,
+    tanka: it.tanka,
+    tanka_mod: it.tanka_mod || '',
+    kingaku: calcKingaku(it),
+    tax: idx === 0 ? tax : '',
+    unchin: idx === 0 ? (Number(state.unchin) || 0) : '',
+    nichi_unchin: '',
+    total: idx === 0 ? total : '',
+    method: state.selectedCustomer.method,
+    carrier: idx === 0 ? state.carrier : ''
+  }));
+
+  try {
+    const res = await fetch(GAS_URL + '?action=saveRecords', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ records })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.saved = true;
+      showToast('データベースに ' + data.count + ' 件記録しました');
+      render();
+    } else {
+      showToast('エラー: ' + (data.error || '不明'));
+    }
+  } catch (e) {
+    showToast('保存に失敗しました: ' + e.message);
+  }
+}
+
+// =====================================================
+// Business Logic
+// =====================================================
+function lookupPrice(hinmei, grade, thickness, width, length) {
+  const gradeKeyMap = {
+    '丸節': 'marubushi',
+    '小節': 'kobushi',
+    '特上小': 'tokujoko',
+    '無節': 'mubushi',
+    '丸節特上小': 'marubushi_tokujoko',
+    '生節': 'namabushi'
+  };
+  const gk = gradeKeyMap[grade];
+  if (!gk) return '';
+
+  for (const p of state.prices) {
+    if (String(p.hinmei).includes(hinmei) &&
+        Number(p.thickness) === Number(thickness) &&
+        Number(p.width) === Number(width) &&
+        Number(p.length) === Number(length)) {
+      const v = p[gk];
+      return v !== '' && v !== 0 ? Number(v) : '';
+    }
+  }
+  return '';
+}
+
+function calcKingaku(item) {
+  const tanka = Number(item.tanka_mod) || Number(item.tanka) || 0;
+  const qty = Number(item.qty) || 0;
+  return tanka * qty;
+}
+
+function getKanryoCustomers() {
+  const map = {};
+  state.kanryoItems.forEach(it => {
+    const c = (it.customer || '').trim();
+    if (!c) return;
+    if (!map[c]) map[c] = 0;
+    map[c]++;
+  });
+  return map;
+}
+
+// =====================================================
+// Navigation
+// =====================================================
+function goStep(n) {
+  if (n === 2 && !state.selectedCustomer) return;
+  if (n === 3 && !state.items.some(it => it.checked)) return;
+  state.step = n;
+  render();
+  window.scrollTo(0, 0);
+}
+
+async function selectCustomer(cust) {
+  state.selectedCustomer = cust;
+  state.items = [];
+  state.prices = [];
+  state.saved = false;
+  render(); // show loading
+
+  await loadPrices(cust.name, cust.method);
+
+  // Build items from kanryo
+  const kanryo = state.kanryoItems.filter(it =>
+    (it.customer || '').trim() === cust.name ||
+    cust.name.includes((it.customer || '').trim()) ||
+    (it.customer || '').trim().includes(cust.name)
+  );
+
+  state.items = kanryo.map(it => {
+    const hinmeiCode = it.hinmei || '';
+    const hinmei = HINMEI_MAP[hinmeiCode] || hinmeiCode;
+    const grade = it.grade || '';
+    const thickness = it.thickness || '';
+    const width = it.width || '';
+    const length = it.length || '';
+    const qty = it.actual && it.actual !== '-' ? it.actual : it.planned || '';
+    const irikazu = it.qty || '';
+    const tanka = lookupPrice(hinmei, grade, thickness, width, length);
+
+    return {
+      checked: true,
+      hinmei,
+      grade,
+      thickness,
+      width,
+      length,
+      irikazu,
+      qty,
+      tanka,
+      tanka_mod: '',
+      remark: it.remark || '',
+      _key: it._key
+    };
+  });
+
+  state.step = 2;
+  render();
+}
+
+// =====================================================
+// Render
+// =====================================================
+function render() {
+  updateStepIndicators();
+  const app = document.getElementById('app');
+  if (state.step === 1) renderStep1(app);
+  else if (state.step === 2) renderStep2(app);
+  else if (state.step === 3) renderStep3(app);
+}
+
+function updateStepIndicators() {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step-ind-' + i);
+    el.className = 'step-item';
+    if (i === state.step) el.classList.add('active');
+    else if (i < state.step) el.classList.add('done');
+  }
+}
+
+// --- Step 1 ---
+function renderStep1(app) {
+  const kanryoCounts = getKanryoCustomers();
+  const priorityNames = Object.keys(kanryoCounts);
+
+  app.innerHTML = `
+    <div class="date-row">
+      <label>日付</label>
+      <input type="date" id="inp-date" value="${state.date}">
+    </div>
+    <input class="search-box" type="text" id="search-customer" placeholder="取引先を検索..." autocomplete="off">
+
+    ${priorityNames.length ? `
+    <div class="section-label">製造完了あり</div>
+    <div class="customer-list" id="priority-list">
+      ${priorityNames.map(name => {
+        const cust = state.customers.find(c => c.name === name || c.name.includes(name) || name.includes(c.name));
+        const method = cust ? cust.method : '';
+        return `<div class="customer-card priority" data-name="${esc(name)}" data-method="${esc(method)}" onclick="onCustomerClick(this)">
+          <div class="customer-name">${esc(name)}<span class="customer-badge">${kanryoCounts[name]}件</span></div>
+          <div class="customer-method">${esc(method)}</div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="section-label">全取引先</div>
+    <div class="customer-list" id="all-list">
+      ${state.customers.map(c => `
+        <div class="customer-card" data-name="${esc(c.name)}" data-method="${esc(c.method)}" onclick="onCustomerClick(this)">
+          <div class="customer-name">${esc(c.name)}</div>
+          <div class="customer-method">${esc(c.method)}</div>
+        </div>`).join('')}
+    </div>
+  `;
+
+  document.getElementById('inp-date').addEventListener('change', e => { state.date = e.target.value; });
+  document.getElementById('search-customer').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.customer-card').forEach(card => {
+      const name = card.dataset.name.toLowerCase();
+      card.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
+}
+
+function onCustomerClick(el) {
+  const name = el.dataset.name;
+  const method = el.dataset.method;
+  const cust = state.customers.find(c => c.name === name) || { name, method, address: '' };
+  selectCustomer(cust);
+}
+
+// --- Step 2 ---
+function renderStep2(app) {
+  const cust = state.selectedCustomer;
+  const items = state.items;
+  const checkedItems = items.filter(it => it.checked);
+  const subtotal = checkedItems.reduce((s, it) => s + calcKingaku(it), 0);
+  const tax = Math.floor(subtotal * TAX_RATE);
+  const unchin = Number(state.unchin) || 0;
+  const total = subtotal + tax + unchin;
+
+  app.innerHTML = `
+    <div class="step2-header">
+      <div>
+        <button class="back-btn" onclick="goStep(1)">← 戻る</button>
+        <h2 style="display:inline; margin-left:12px;">${esc(cust.name)}</h2>
+        <span style="color:var(--gray); font-size:13px; margin-left:8px;">${esc(cust.method)}</span>
+      </div>
+      <button class="action-btn" onclick="goStep(3)" ${!checkedItems.length ? 'disabled' : ''}>プレビュー →</button>
+    </div>
+
+    <div class="items-table-wrap">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width:36px">✓</th>
+            <th>品名</th>
+            <th>等級</th>
+            <th>厚</th>
+            <th>幅</th>
+            <th>長</th>
+            <th>入数</th>
+            <th>数量</th>
+            <th>単価</th>
+            <th>修正単価</th>
+            <th>金額</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((it, i) => `
+          <tr>
+            <td><input type="checkbox" ${it.checked ? 'checked' : ''} onchange="toggleItem(${i}, this.checked)"></td>
+            <td><input type="text" value="${esc(it.hinmei)}" onchange="updateItem(${i},'hinmei',this.value)"></td>
+            <td><select onchange="updateItem(${i},'grade',this.value);autoPrice(${i})">
+              ${GRADE_OPTIONS.map(g => `<option ${it.grade===g?'selected':''}>${g}</option>`).join('')}
+            </select></td>
+            <td><input type="number" value="${it.thickness}" onchange="updateItem(${i},'thickness',this.value);autoPrice(${i})" style="width:50px"></td>
+            <td><input type="number" value="${it.width}" onchange="updateItem(${i},'width',this.value);autoPrice(${i})" style="width:55px"></td>
+            <td><input type="number" value="${it.length}" onchange="updateItem(${i},'length',this.value);autoPrice(${i})" style="width:60px"></td>
+            <td><input type="number" value="${it.irikazu}" onchange="updateItem(${i},'irikazu',this.value)" style="width:50px"></td>
+            <td><input type="number" value="${it.qty}" onchange="updateItem(${i},'qty',this.value)" style="width:55px"></td>
+            <td class="num">${it.tanka !== '' ? Number(it.tanka).toLocaleString() : '-'}</td>
+            <td><input type="number" value="${it.tanka_mod}" onchange="updateItem(${i},'tanka_mod',this.value)" style="width:70px" placeholder="${it.tanka}"></td>
+            <td class="num" style="font-weight:700">${calcKingaku(it) ? calcKingaku(it).toLocaleString() : '-'}</td>
+            <td><button style="color:var(--red);border:none;background:none;cursor:pointer;font-size:16px" onclick="removeItem(${i})">×</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <button class="action-btn" onclick="addItem()" style="font-size:13px; padding:6px 14px;">＋ 行追加</button>
+
+    <div class="extras-row">
+      <label>配送業者</label>
+      <select id="inp-carrier" onchange="state.carrier=this.value">
+        <option value="" ${!state.carrier?'selected':''}>選択</option>
+        <option value="自社" ${state.carrier==='自社'?'selected':''}>自社</option>
+        <option value="内藤運輸" ${state.carrier==='内藤運輸'?'selected':''}>内藤運輸</option>
+        <option value="ニッチ" ${state.carrier==='ニッチ'?'selected':''}>ニッチ</option>
+        <option value="引取" ${state.carrier==='引取'?'selected':''}>引取</option>
+      </select>
+      <label>運賃</label>
+      <input type="number" id="inp-unchin" value="${state.unchin}" onchange="state.unchin=Number(this.value);render()" style="width:100px">
+    </div>
+
+    <div class="totals-box">
+      <div class="row"><span>小計</span><span>¥${subtotal.toLocaleString()}</span></div>
+      <div class="row"><span>消費税 (10%)</span><span>¥${tax.toLocaleString()}</span></div>
+      <div class="row"><span>運賃</span><span>¥${unchin.toLocaleString()}</span></div>
+      <div class="row grand"><span>合計金額</span><span>¥${total.toLocaleString()}</span></div>
+    </div>
+
+    <div style="text-align:right">
+      <button class="action-btn" onclick="goStep(3)" ${!checkedItems.length ? 'disabled' : ''}>プレビュー →</button>
+    </div>
+  `;
+}
+
+function toggleItem(i, checked) { state.items[i].checked = checked; render(); }
+function updateItem(i, field, val) { state.items[i][field] = val; render(); }
+function autoPrice(i) {
+  const it = state.items[i];
+  it.tanka = lookupPrice(it.hinmei, it.grade, it.thickness, it.width, it.length);
+  render();
+}
+function removeItem(i) { state.items.splice(i, 1); render(); }
+function addItem() {
+  state.items.push({
+    checked: true, hinmei: '', grade: '丸節', thickness: 15, width: 120, length: 4000,
+    irikazu: 8, qty: '', tanka: '', tanka_mod: '', remark: '', _key: null
+  });
+  render();
+}
+
+// --- Step 3 ---
+function renderStep3(app) {
+  const cust = state.selectedCustomer;
+  const checkedItems = state.items.filter(it => it.checked);
+  const subtotal = checkedItems.reduce((s, it) => s + calcKingaku(it), 0);
+  const tax = Math.floor(subtotal * TAX_RATE);
+  const unchin = Number(state.unchin) || 0;
+  const total = subtotal + tax + unchin;
+
+  app.innerHTML = `
+    <div class="preview-actions">
+      <button class="back-btn" onclick="goStep(2)">← 編集に戻る</button>
+      <button class="action-btn" onclick="savePDF()">PDF保存</button>
+      <button class="action-btn" onclick="window.print()">印刷</button>
+      <button class="action-btn green" onclick="saveRecords()" ${state.saved ? 'disabled' : ''}>
+        ${state.saved ? '✓ 記録済み' : 'データベースに記録'}
+      </button>
+    </div>
+
+    <div class="nouhinsho" id="nouhinsho-preview">
+      <h2>納 品 書</h2>
+      <div class="date-line">${formatDate(state.date)}</div>
+
+      <div class="customer-line">
+        ${esc(cust.name)}<span class="honorific">御中</span>
+      </div>
+
+      <div class="total-line">
+        <span class="total-label">合計金額</span>¥${total.toLocaleString()}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>品名</th>
+            <th>等級</th>
+            <th>厚</th>
+            <th>幅</th>
+            <th>長</th>
+            <th>入数</th>
+            <th>数量</th>
+            <th>単価</th>
+            <th>金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${checkedItems.map(it => {
+            const tanka = Number(it.tanka_mod) || Number(it.tanka) || 0;
+            const kingaku = calcKingaku(it);
+            return `<tr>
+              <td>${esc(it.hinmei)}</td>
+              <td>${esc(it.grade)}</td>
+              <td class="num">${it.thickness}</td>
+              <td class="num">${it.width}</td>
+              <td class="num">${Number(it.length).toLocaleString()}</td>
+              <td class="num">${it.irikazu}</td>
+              <td class="num">${Number(it.qty).toLocaleString()}</td>
+              <td class="num">${tanka ? tanka.toLocaleString() : ''}</td>
+              <td class="num">${kingaku ? kingaku.toLocaleString() : ''}</td>
+            </tr>`;
+          }).join('')}
+          ${Array(Math.max(0, 10 - checkedItems.length)).fill('<tr>' + '<td>&nbsp;</td>'.repeat(9) + '</tr>').join('')}
+        </tbody>
+      </table>
+
+      <table class="summary-table">
+        <tr><td class="label">小計</td><td class="value">¥${subtotal.toLocaleString()}</td></tr>
+        <tr><td class="label">消費税 (10%)</td><td class="value">¥${tax.toLocaleString()}</td></tr>
+        <tr><td class="label">運賃</td><td class="value">¥${unchin.toLocaleString()}</td></tr>
+        <tr><td class="label" style="font-weight:700">合計金額</td><td class="value" style="font-weight:700;font-size:16px">¥${total.toLocaleString()}</td></tr>
+      </table>
+
+      <div class="company-info">
+        <div class="company-name">株式会社 林材木店</div>
+        〒437-1203<br>
+        静岡県磐田市福田5490-47<br>
+        TEL ：0538-58-2395<br>
+        FAX ：050-3146-7566<br>
+        email：info@hayazai.com<br>
+        <br>
+        取引銀行<br>
+        遠州信用金庫　和田支店（013）<br>
+        普通　1004660　カ）ハヤシザイモクテン<br>
+        <br>
+        登録番号　T3-0804-0100-4226
+      </div>
+    </div>
+  `;
+}
+
+// =====================================================
+// PDF
+// =====================================================
+function savePDF() {
+  const el = document.getElementById('nouhinsho-preview');
+  const name = state.selectedCustomer.name;
+  html2pdf().set({
+    margin: 0,
+    filename: '納品書_' + name + '_' + state.date + '.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(el).save();
+}
+
+// =====================================================
+// Utilities
+// =====================================================
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// =====================================================
+// Init
+// =====================================================
+async function init() {
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px">データを読み込み中...</p></div>';
+
+  await Promise.all([loadCustomers(), loadKanryoItems()]);
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
