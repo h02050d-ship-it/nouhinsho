@@ -625,7 +625,7 @@ function renderStep1(app) {
     <div class="section-label">製造完了あり</div>
     <div class="customer-list" id="priority-list">
       ${priorityNames.map(name => {
-        const cust = state.customers.find(c => c.name === name || c.name.includes(name) || name.includes(c.name));
+        const cust = state.customers.find(c => c.name === name) || state.customers.find(c => c.name.includes(name) || name.includes(c.name));
         const method = cust ? cust.method : '';
         return `<div class="customer-card priority" data-name="${esc(name)}" data-method="${esc(method)}" onclick="onCustomerClick(this)">
           <div class="customer-name">${esc(name)}<span class="customer-badge">${kanryoCounts[name]}件</span></div>
@@ -657,7 +657,10 @@ function renderStep1(app) {
 function onCustomerClick(el) {
   const name = el.dataset.name;
   const method = el.dataset.method;
-  const cust = state.customers.find(c => c.name === name) || { name, method, address: '' };
+  // 完全一致 → 部分一致でマスター検索
+  const cust = state.customers.find(c => c.name === name)
+    || state.customers.find(c => c.name.includes(name) || name.includes(c.name))
+    || { name, method, address: '' };
   selectCustomer(cust);
 }
 
