@@ -258,13 +258,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino San
 .nouhinsho .summary-table .label { text-align: left; font-weight: 600; background: #f0f0f0; }
 .nouhinsho .summary-table .value { text-align: right; min-width: 100px; }
 
-.nouhinsho .company-info {
-  font-size: 12px;
-  line-height: 1.8;
-  position: absolute;
-  bottom: 20mm;
-  right: 15mm;
-}
 .nouhinsho .company-name { font-size: 16px; font-weight: 700; }
 
 /* === Loading === */
@@ -358,6 +351,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyE2O2zEk1NDYskaxflVtPR
 const HINMEI_MAP = { F: '桧フローリング', P: '桧羽目板', N: 'ナイスオリジナル', S: 'スノコ板' };
 const GRADE_OPTIONS = ['丸節','小節','特上小','無節','丸節特上小','生節','B丸節'];
 const TAX_RATE = 0.10;
+const EXCLUDE_KEYWORDS = ['ヤフ','楽天','ネット'];
 
 const firebaseConfig = {
   apiKey: "AIzaSyBkpsxdYciMiLmsBfHNWRL7OFniSsssQwA",
@@ -494,12 +488,23 @@ function lookupPrice(hinmei, grade, thickness, width, length) {
   if (!gk) return '';
 
   for (const p of state.prices) {
-    if (String(p.hinmei).includes(hinmei) &&
+    const pH = String(p.hinmei);
+    const matchHinmei = pH.includes(hinmei) || hinmei.includes(pH) || pH === hinmei;
+    if (matchHinmei &&
         Number(p.thickness) === Number(thickness) &&
         Number(p.width) === Number(width) &&
         Number(p.length) === Number(length)) {
       const v = p[gk];
-      return v !== '' && v !== 0 ? Number(v) : '';
+      if (v !== '' && v !== 0 && v !== null && v !== undefined) return Number(v);
+    }
+  }
+  // フォールバック: 厚・幅・長だけでマッチ
+  for (const p of state.prices) {
+    if (Number(p.thickness) === Number(thickness) &&
+        Number(p.width) === Number(width) &&
+        Number(p.length) === Number(length)) {
+      const v = p[gk];
+      if (v !== '' && v !== 0 && v !== null && v !== undefined) return Number(v);
     }
   }
   return '';
@@ -511,11 +516,15 @@ function calcKingaku(item) {
   return tanka * qty;
 }
 
+function isExcluded(name) {
+  return EXCLUDE_KEYWORDS.some(kw => name.includes(kw));
+}
+
 function getKanryoCustomers() {
   const map = {};
   state.kanryoItems.forEach(it => {
     const c = (it.customer || '').trim();
-    if (!c) return;
+    if (!c || isExcluded(c)) return;
     if (!map[c]) map[c] = 0;
     map[c]++;
   });
@@ -627,7 +636,7 @@ function renderStep1(app) {
 
     <div class="section-label">全取引先</div>
     <div class="customer-list" id="all-list">
-      ${state.customers.map(c => `
+      ${state.customers.filter(c => !isExcluded(c.name) && c.method !== 'ネット').map(c => `
         <div class="customer-card" data-name="${esc(c.name)}" data-method="${esc(c.method)}" onclick="onCustomerClick(this)">
           <div class="customer-name">${esc(c.name)}</div>
           <div class="customer-method">${esc(c.method)}</div>
@@ -779,12 +788,27 @@ function renderStep3(app) {
       <h2>納 品 書</h2>
       <div class="date-line">${formatDate(state.date)}</div>
 
-      <div class="customer-line">
-        ${esc(cust.name)}<span class="honorific">御中</span>
-      </div>
-
-      <div class="total-line">
-        <span class="total-label">合計金額</span>¥${total.toLocaleString()}
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+        <div>
+          <div class="customer-line">
+            ${esc(cust.name)}<span class="honorific">御中</span>
+          </div>
+          <div class="total-line" style="margin-top:12px;">
+            <span class="total-label">合計金額</span>¥${total.toLocaleString()}
+          </div>
+        </div>
+        <div style="font-size:12px; line-height:1.7; text-align:left;">
+          <div class="company-name">株式会社 林材木店</div>
+          〒437-1203<br>
+          静岡県磐田市福田5490-47<br>
+          TEL ：0538-58-2395<br>
+          FAX ：050-3146-7566<br>
+          email：info@hayazai.com<br>
+          取引銀行<br>
+          遠州信用金庫　和田支店（013）<br>
+          普通　1004660　カ）ハヤシザイモクテン<br>
+          登録番号　T3-0804-0100-4226
+        </div>
       </div>
 
       <table>
@@ -821,26 +845,19 @@ function renderStep3(app) {
         </tbody>
       </table>
 
-      <table class="summary-table">
-        <tr><td class="label">小計</td><td class="value">¥${subtotal.toLocaleString()}</td></tr>
-        <tr><td class="label">消費税 (10%)</td><td class="value">¥${tax.toLocaleString()}</td></tr>
-        <tr><td class="label">運賃</td><td class="value">¥${unchin.toLocaleString()}</td></tr>
-        <tr><td class="label" style="font-weight:700">合計金額</td><td class="value" style="font-weight:700;font-size:16px">¥${total.toLocaleString()}</td></tr>
-      </table>
-
-      <div class="company-info">
-        <div class="company-name">株式会社 林材木店</div>
-        〒437-1203<br>
-        静岡県磐田市福田5490-47<br>
-        TEL ：0538-58-2395<br>
-        FAX ：050-3146-7566<br>
-        email：info@hayazai.com<br>
-        <br>
-        取引銀行<br>
-        遠州信用金庫　和田支店（013）<br>
-        普通　1004660　カ）ハヤシザイモクテン<br>
-        <br>
-        登録番号　T3-0804-0100-4226
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:8px;">
+        <div>
+          <div style="font-size:11px; margin-bottom:8px;">※本品は合法木材です<br>合法木材認定番号静岡県木連1831</div>
+          <table style="border:1px solid #333; font-size:12px; min-width:200px;">
+            <tr><td style="border:1px solid #333; padding:4px 8px; font-weight:600; background:#f0f0f0;">備考</td></tr>
+            <tr><td style="border:1px solid #333; padding:8px; min-height:60px;">&nbsp;</td></tr>
+          </table>
+        </div>
+        <table class="summary-table">
+          <tr><td class="label">運賃</td><td class="value">${unchin ? '¥' + unchin.toLocaleString() : ''}</td></tr>
+          <tr><td class="label">消費税（10%）</td><td class="value">¥${tax.toLocaleString()}</td></tr>
+          <tr><td class="label" style="font-weight:700">合計金額</td><td class="value" style="font-weight:700;font-size:16px">¥${total.toLocaleString()}</td></tr>
+        </table>
       </div>
     </div>
   `;
