@@ -375,7 +375,8 @@ let state = {
   kanryoItems: [],
   selectedCustomer: null,
   prices: [],
-  items: [],       // Step 2 items [{checked, hinmei, grade, thickness, width, length, irikazu, qty, tanka, tanka_mod, remark, _key}]
+  priceCache: {},  // { '付売': [...], '市売': [...], 'ニッチ': [...] }
+  items: [],
   carrier: '',
   unchin: 0,
   saved: false,
@@ -395,16 +396,21 @@ async function loadCustomers() {
   }
 }
 
-async function loadPrices(customer, method) {
-  try {
-    const url = GAS_URL + '?action=getPrices&customer=' + encodeURIComponent(customer) + '&method=' + encodeURIComponent(method);
-    const res = await fetch(url);
-    const data = await res.json();
-    state.prices = data.prices || [];
-  } catch (e) {
-    console.error('Failed to load prices:', e);
-    state.prices = [];
-  }
+async function loadAllPrices() {
+  const methods = ['付売', '市売'];
+  const promises = methods.map(async m => {
+    try {
+      const url = GAS_URL + '?action=getPrices&customer=ALL&method=' + encodeURIComponent(m);
+      const res = await fetch(url);
+      const data = await res.json();
+      state.priceCache[m] = data.prices || [];
+    } catch (e) { state.priceCache[m] = []; }
+  });
+  await Promise.all(promises);
+}
+
+function loadPricesFromCache(customer, method) {
+  state.prices = state.priceCache[method] || [];
 }
 
 function loadKanryoItems() {
@@ -537,6 +543,7 @@ function getKanryoCustomers() {
 function goStep(n) {
   if (n === 2 && !state.selectedCustomer) return;
   if (n === 3 && !state.items.some(it => it.checked)) return;
+  if (n === 3 && !state.carrier) { showToast('配送業者を選択してください'); return; }
   state.step = n;
   render();
   window.scrollTo(0, 0);
@@ -571,16 +578,15 @@ async function selectCustomer(cust) {
     };
   });
 
-  // Show Step 2 immediately
+  // Load prices from cache (instant)
+  loadPricesFromCache(cust.name, cust.method);
+  state.items.forEach(it => {
+    it.tanka = lookupPrice(it.hinmei, it.grade, it.thickness, it.width, it.length);
+  });
+
   state.step = 2;
   render();
   window.scrollTo(0, 0);
-
-  // Load prices in background, then update
-  await loadPrices(cust.name, cust.method);
-  state.items.forEach(it => {
-    if (!it.tanka) it.tanka = lookupPrice(it.hinmei, it.grade, it.thickness, it.width, it.length);
-  });
 
   state.step = 2;
   render();
@@ -796,16 +802,17 @@ function renderStep3(app) {
       <h2>納 品 書</h2>
       <div class="date-line">${formatDate(state.date)}</div>
 
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
         <div>
           <div class="customer-line">
             ${esc(cust.name)}<span class="honorific">御中</span>
           </div>
-          <div class="total-line" style="margin-top:12px;">
+          <div style="height:24px;"></div>
+          <div class="total-line">
             <span class="total-label">合計金額</span>¥${total.toLocaleString()}
           </div>
         </div>
-        <div style="font-size:12px; line-height:1.7; text-align:left;">
+        <div style="font-size:11px; line-height:1.6; text-align:left;">
           <div class="company-name">株式会社 林材木店</div>
           〒437-1203<br>
           静岡県磐田市福田5490-47<br>
@@ -822,15 +829,15 @@ function renderStep3(app) {
       <table>
         <thead>
           <tr>
-            <th>品名</th>
-            <th>等級</th>
-            <th>厚</th>
-            <th>幅</th>
-            <th>長</th>
-            <th>入数</th>
-            <th>数量</th>
-            <th>単価</th>
-            <th>金額</th>
+            <th style="width:22%">品名</th>
+            <th style="width:10%">等級</th>
+            <th style="width:6%">厚</th>
+            <th style="width:7%">幅</th>
+            <th style="width:8%">長</th>
+            <th style="width:7%">入数</th>
+            <th style="width:10%">数　量</th>
+            <th style="width:14%">単価</th>
+            <th style="width:16%">金　額</th>
           </tr>
         </thead>
         <tbody>
@@ -849,22 +856,22 @@ function renderStep3(app) {
               <td class="num">${kingaku ? kingaku.toLocaleString() : ''}</td>
             </tr>`;
           }).join('')}
-          ${Array(Math.max(0, 10 - checkedItems.length)).fill('<tr>' + '<td>&nbsp;</td>'.repeat(9) + '</tr>').join('')}
+          ${Array(Math.max(0, 18 - checkedItems.length)).fill('<tr>' + '<td>&nbsp;</td>'.repeat(9) + '</tr>').join('')}
         </tbody>
       </table>
 
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:0;">
         <div>
-          <div style="font-size:11px; margin-bottom:8px;">※本品は合法木材です<br>合法木材認定番号静岡県木連1831</div>
-          <table style="border:1px solid #333; font-size:12px; min-width:200px;">
-            <tr><td style="border:1px solid #333; padding:4px 8px; font-weight:600; background:#f0f0f0;">備考</td></tr>
-            <tr><td style="border:1px solid #333; padding:8px; min-height:60px;">&nbsp;</td></tr>
+          <div style="font-size:10px; line-height:1.6;">※本品は合法木材です<br>合法木材認定番号静岡県木連1831</div>
+          <table style="border:1px solid #333; font-size:11px; width:240px; margin-top:4px;">
+            <tr><td style="border:1px solid #333; padding:3px 8px; font-weight:600; background:#e8e8e8; text-align:center;">備考</td></tr>
+            <tr><td style="border:1px solid #333; padding:6px 8px; height:60px; vertical-align:top;">&nbsp;</td></tr>
           </table>
         </div>
         <table class="summary-table">
-          <tr><td class="label">運賃</td><td class="value">${unchin ? '¥' + unchin.toLocaleString() : ''}</td></tr>
-          <tr><td class="label">消費税（10%）</td><td class="value">¥${tax.toLocaleString()}</td></tr>
-          <tr><td class="label" style="font-weight:700">合計金額</td><td class="value" style="font-weight:700;font-size:16px">¥${total.toLocaleString()}</td></tr>
+          <tr><td class="label">運賃</td><td class="value">${unchin ? unchin.toLocaleString() : ''}</td></tr>
+          <tr><td class="label">消費税（10%）</td><td class="value">${tax.toLocaleString()}</td></tr>
+          <tr><td class="label" style="font-weight:700">合計金額</td><td class="value" style="font-weight:700;font-size:14px">${total.toLocaleString()}</td></tr>
         </table>
       </div>
     </div>
@@ -908,7 +915,7 @@ async function init() {
   const app = document.getElementById('app');
   app.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px">データを読み込み中...</p></div>';
 
-  await Promise.all([loadCustomers(), loadKanryoItems()]);
+  await Promise.all([loadCustomers(), loadKanryoItems(), loadAllPrices()]);
   render();
 }
 
