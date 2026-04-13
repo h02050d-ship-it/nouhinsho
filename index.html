@@ -553,9 +553,7 @@ async function selectCustomer(cust) {
 
   // Build items from kanryo
   const kanryo = state.kanryoItems.filter(it =>
-    (it.customer || '').trim() === cust.name ||
-    cust.name.includes((it.customer || '').trim()) ||
-    (it.customer || '').trim().includes(cust.name)
+    matchCustomerName((it.customer || '').trim(), cust.name)
   );
 
   state.items = kanryo.map(it => {
@@ -625,7 +623,7 @@ function renderStep1(app) {
     <div class="section-label">製造完了あり</div>
     <div class="customer-list" id="priority-list">
       ${priorityNames.map(name => {
-        const cust = state.customers.find(c => c.name === name) || state.customers.find(c => c.name.includes(name) || name.includes(c.name));
+        const cust = state.customers.find(c => matchCustomerName(c.name, name));
         const method = cust ? cust.method : '';
         return `<div class="customer-card priority" data-name="${esc(name)}" data-method="${esc(method)}" onclick="onCustomerClick(this)">
           <div class="customer-name">${esc(name)}<span class="customer-badge">${kanryoCounts[name]}件</span></div>
@@ -654,12 +652,20 @@ function renderStep1(app) {
   });
 }
 
+function matchCustomerName(a, b) {
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+  // 括弧等を除去して比較（例: ナイス（株）小牧 → ナイス小牧）
+  const clean = s => s.replace(/[（）\(\)株有]/g, '').trim();
+  const ca = clean(a), cb = clean(b);
+  return ca === cb || ca.includes(cb) || cb.includes(ca);
+}
+
 function onCustomerClick(el) {
   const name = el.dataset.name;
   const method = el.dataset.method;
-  // 完全一致 → 部分一致でマスター検索
   const cust = state.customers.find(c => c.name === name)
-    || state.customers.find(c => c.name.includes(name) || name.includes(c.name))
+    || state.customers.find(c => matchCustomerName(c.name, name))
     || { name, method, address: '' };
   selectCustomer(cust);
 }
