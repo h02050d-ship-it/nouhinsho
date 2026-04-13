@@ -544,14 +544,10 @@ function goStep(n) {
 
 async function selectCustomer(cust) {
   state.selectedCustomer = cust;
-  state.items = [];
   state.prices = [];
   state.saved = false;
-  render(); // show loading
 
-  await loadPrices(cust.name, cust.method);
-
-  // Build items from kanryo
+  // Build items from kanryo immediately (no waiting)
   const kanryo = state.kanryoItems.filter(it =>
     matchCustomerName((it.customer || '').trim(), cust.name)
   );
@@ -559,28 +555,31 @@ async function selectCustomer(cust) {
   state.items = kanryo.map(it => {
     const hinmeiCode = it.hinmei || '';
     const hinmei = HINMEI_MAP[hinmeiCode] || hinmeiCode;
-    const grade = it.grade || '';
-    const thickness = it.thickness || '';
-    const width = it.width || '';
-    const length = it.length || '';
-    const qty = it.actual && it.actual !== '-' ? it.actual : it.planned || '';
-    const irikazu = it.qty || '';
-    const tanka = lookupPrice(hinmei, grade, thickness, width, length);
-
     return {
       checked: true,
       hinmei,
-      grade,
-      thickness,
-      width,
-      length,
-      irikazu,
-      qty,
-      tanka,
+      grade: it.grade || '',
+      thickness: it.thickness || '',
+      width: it.width || '',
+      length: it.length || '',
+      irikazu: it.qty || '',
+      qty: it.actual && it.actual !== '-' ? it.actual : it.planned || '',
+      tanka: '',
       tanka_mod: '',
       remark: it.remark || '',
       _key: it._key
     };
+  });
+
+  // Show Step 2 immediately
+  state.step = 2;
+  render();
+  window.scrollTo(0, 0);
+
+  // Load prices in background, then update
+  await loadPrices(cust.name, cust.method);
+  state.items.forEach(it => {
+    if (!it.tanka) it.tanka = lookupPrice(it.hinmei, it.grade, it.thickness, it.width, it.length);
   });
 
   state.step = 2;
