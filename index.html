@@ -300,15 +300,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino San
   .nouhinsho {
     box-shadow: none;
     width: 100%;
-    padding: 10mm 15mm 8mm;
+    padding: 8mm 12mm 5mm;
     min-height: auto;
   }
-  .nouhinsho h2 { margin-bottom: 8px; }
-  .nouhinsho .date-line { margin-bottom: 10px; }
-  .nouhinsho .customer-line { margin-bottom: 10px; }
-  .nouhinsho .total-box td { padding: 4px 14px; }
-  .nouhinsho table { margin-bottom: 6px; font-size: 11px; }
-  .nouhinsho table th, .nouhinsho table td { padding: 3px 4px; }
+  .nouhinsho h2 { font-size: 24px; margin-bottom: 6px; }
+  .nouhinsho .date-line { margin-bottom: 8px; font-size: 12px; }
+  .nouhinsho .customer-line { font-size: 16px; margin-bottom: 8px; padding: 2px 0 4px; }
+  .nouhinsho .total-box td { padding: 4px 12px; font-size: 16px; }
+  .nouhinsho table { margin-bottom: 4px; font-size: 10px; }
+  .nouhinsho table th, .nouhinsho table td { padding: 2px 3px; }
+  .nouhinsho .summary-table td { padding: 2px 8px; font-size: 10px; }
   @page { size: A4 portrait; margin: 0; }
 }
 </style>
@@ -865,7 +866,7 @@ function renderStep3(app) {
           <div style="font-size:10px; line-height:1.6;">※本品は合法木材です<br>合法木材認定番号静岡県木連1831</div>
           <table style="border:1px solid #333; font-size:11px; width:100%; margin-top:4px;">
             <tr><td style="border:1px solid #333; padding:3px 8px; font-weight:600; background:#d9d9d9; text-align:center;">備考</td></tr>
-            <tr><td style="border:1px solid #333; padding:6px 8px; height:100px; vertical-align:top;">&nbsp;</td></tr>
+            <tr><td style="border:1px solid #333; padding:6px 8px; height:60px; vertical-align:top;">&nbsp;</td></tr>
           </table>
         </div>
         <div style="text-align:center;">
@@ -874,8 +875,8 @@ function renderStep3(app) {
             <tr><td class="label">消費税（10%）</td><td class="value">${tax.toLocaleString()}</td></tr>
             <tr><td class="label">合計金額</td><td class="value" style="font-weight:700;font-size:14px">${total.toLocaleString()}</td></tr>
           </table>
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://hayazai.com/" alt="QR" style="width:100px;height:100px; margin-top:4px;">
-          <div style="font-size:9px; margin-top:2px;">https://hayazai.com/</div>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://hayazai.com/" alt="QR" style="width:70px;height:70px; margin-top:4px;">
+          <div style="font-size:8px; margin-top:1px;">https://hayazai.com/</div>
         </div>
       </div>
     </div>
