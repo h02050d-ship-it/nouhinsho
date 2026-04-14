@@ -224,14 +224,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino San
   font-size: 18px;
   font-weight: 700;
   border-bottom: 1px solid #000;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   width: 52%;
   padding: 4px 0 6px;
   margin-bottom: 20px;
+  overflow: hidden;
 }
-.nouhinsho .customer-line .honorific { font-size: 14px; font-weight: 400; }
+.nouhinsho .customer-line .cname { float: left; }
+.nouhinsho .customer-line .honorific { font-size: 14px; font-weight: 400; float: right; line-height: 28px; }
 .nouhinsho .total-box { display: inline-table; border-collapse: collapse; margin-bottom: 16px; }
 .nouhinsho .total-box td { border: 1px solid #000; padding: 8px 20px; font-size: 18px; font-weight: 700; }
 .nouhinsho .total-box .tl { font-size: 15px; background: #fff; min-width: 80px; }
@@ -805,7 +804,7 @@ function renderStep3(app) {
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
         <div>
           <div class="customer-line">
-            ${esc(cust.name)}<span class="honorific">御中</span>
+            <span class="cname">${esc(cust.name)}</span><span class="honorific">御中</span>
           </div>
           <div style="height:20px;"></div>
           <table class="total-box"><tr><td class="tl">合計金額</td><td class="tv">¥${total.toLocaleString()}</td></tr></table>
