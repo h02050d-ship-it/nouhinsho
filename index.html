@@ -634,9 +634,10 @@ function renderStep1(app) {
     <div class="customer-list" id="priority-list">
       ${priorityNames.map(name => {
         const cust = state.customers.find(c => matchCustomerName(c.name, name));
+        const formalName = cust ? cust.name : name;
         const method = cust ? cust.method : '';
-        return `<div class="customer-card priority" data-name="${esc(name)}" data-method="${esc(method)}" onclick="onCustomerClick(this)">
-          <div class="customer-name">${esc(name)}<span class="customer-badge">${kanryoCounts[name]}件</span></div>
+        return `<div class="customer-card priority" data-name="${esc(formalName)}" data-method="${esc(method)}" onclick="onCustomerClick(this)">
+          <div class="customer-name">${esc(formalName)}<span class="customer-badge">${kanryoCounts[name]}件</span></div>
           <div class="customer-method">${esc(method)}</div>
         </div>`;
       }).join('')}
