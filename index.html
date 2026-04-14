@@ -221,23 +221,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino San
 .nouhinsho h2 { text-align: center; font-size: 28px; letter-spacing: 12px; margin-bottom: 16px; }
 .nouhinsho .date-line { text-align: right; font-size: 14px; margin-bottom: 20px; }
 .nouhinsho .customer-line {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  border-bottom: 2px solid #000;
-  display: inline-block;
-  padding-bottom: 4px;
-  margin-bottom: 24px;
-}
-.nouhinsho .customer-line .honorific { font-size: 16px; font-weight: 400; margin-left: 16px; }
-.nouhinsho .total-line {
-  font-size: 20px;
-  font-weight: 700;
-  border: 2px solid #000;
-  display: inline-block;
-  padding: 6px 20px;
+  border-bottom: 1px solid #000;
+  display: block;
+  width: 55%;
+  padding: 4px 0 6px;
   margin-bottom: 20px;
 }
-.nouhinsho .total-label { font-size: 14px; margin-right: 12px; }
+.nouhinsho .customer-line .honorific { font-size: 14px; font-weight: 400; margin-left: 40px; }
+.nouhinsho .total-box { display: inline-table; border-collapse: collapse; margin-bottom: 16px; }
+.nouhinsho .total-box td { border: 1px solid #000; padding: 6px 16px; font-size: 18px; font-weight: 700; }
+.nouhinsho .total-box .tl { font-size: 14px; background: #fff; }
 
 .nouhinsho table {
   width: 100%;
@@ -809,10 +804,8 @@ function renderStep3(app) {
           <div class="customer-line">
             ${esc(cust.name)}<span class="honorific">御中</span>
           </div>
-          <div style="height:24px;"></div>
-          <div class="total-line">
-            <span class="total-label">合計金額</span>¥${total.toLocaleString()}
-          </div>
+          <div style="height:20px;"></div>
+          <table class="total-box"><tr><td class="tl">合計金額</td><td>¥${total.toLocaleString()}</td></tr></table>
         </div>
         <div style="font-size:11px; line-height:1.6; text-align:left;">
           <div class="company-name">株式会社 林材木店</div>
@@ -865,7 +858,7 @@ function renderStep3(app) {
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:0;">
         <div>
           <div style="font-size:10px; line-height:1.6;">※本品は合法木材です<br>合法木材認定番号静岡県木連1831</div>
-          <table style="border:1px solid #333; font-size:11px; width:240px; margin-top:4px;">
+          <table style="border:1px solid #333; font-size:11px; width:55%; margin-top:4px;">
             <tr><td style="border:1px solid #333; padding:3px 8px; font-weight:600; background:#d9d9d9; text-align:center;">備考</td></tr>
             <tr><td style="border:1px solid #333; padding:6px 8px; height:100px; vertical-align:top;">&nbsp;</td></tr>
           </table>
