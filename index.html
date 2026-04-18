@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>納品書作成</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
@@ -312,9 +313,40 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino San
   .nouhinsho .summary-table td { padding: 2px 8px; font-size: 10px; }
   @page { size: A4 portrait; margin: 0; }
 }
+
+.login-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.login-box {
+  background: #fff; padding: 32px 28px; border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.1); width: 320px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.login-box h2 { font-size: 18px; font-weight: 700; text-align: center; color: var(--blue); }
+.login-box input {
+  padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px;
+  font-size: 16px; outline: none;
+}
+.login-box input:focus { border-color: var(--blue); }
+.login-box button {
+  background: var(--blue); color: #fff; border: none; padding: 12px;
+  border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.login-box button:active { background: #0d47a1; }
+.login-error { color: #d33; font-size: 13px; text-align: center; min-height: 18px; }
 </style>
 </head>
 <body>
+<div class="login-overlay" id="loginOverlay" style="display:none">
+  <div class="login-box">
+    <h2>📄 納品書作成</h2>
+    <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password">
+    <div class="login-error" id="loginError"></div>
+    <button onclick="doLogin()">ログイン</button>
+  </div>
+</div>
 
 <!-- Header -->
 <div class="header">
@@ -369,6 +401,38 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
+
+const SHARED_EMAIL = "info@hayazai.com";
+
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+let appInitialized = false;
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    if (!appInitialized) { appInitialized = true; init(); }
+  } else {
+    document.getElementById('loginOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('loginPassword').focus(), 50);
+  }
+});
+
+function doLogin() {
+  const pw = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if (!pw) { errEl.textContent = 'パスワードを入力してください'; return; }
+  auth.signInWithEmailAndPassword(SHARED_EMAIL, pw).catch(e => {
+    errEl.textContent = 'パスワードが違います';
+    console.error(e);
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginOverlay').style.display === 'flex') {
+    doLogin();
+  }
+});
 
 // =====================================================
 // State
@@ -924,8 +988,6 @@ async function init() {
   await Promise.all([loadCustomers(), loadKanryoItems(), loadAllPrices()]);
   render();
 }
-
-init();
 </script>
 </body>
 </html>
